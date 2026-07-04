@@ -47,6 +47,7 @@ struct ImageFormDataParams {
 }
 
 const MAX_UPLOAD_SIZE: usize = 10 * 1024 * 1024; // 10MB
+const MAX_DIMENSION: u32 = 8192;
 
 #[derive(Clone)]
 struct AppState {
@@ -217,6 +218,11 @@ fn apply_transformations(
     // Crop if all crop parameters are present
     if let (Some(cx), Some(cy), Some(cw), Some(ch)) = (crop_x, crop_y, crop_w, crop_h) {
         if cw > 0 && ch > 0 {
+            if cw > MAX_DIMENSION || ch > MAX_DIMENSION {
+                return Err(AppError::InvalidCropDimensions(
+                    "crop dimensions exceed maximum allowed limit of 8192px.",
+                ));
+            }
             img = ops::crop_image(img, cx, cy, cw, ch)?;
         } else {
             return Err(AppError::InvalidCropDimensions(
@@ -231,6 +237,11 @@ fn apply_transformations(
     let target_h = h.unwrap_or(current_h);
 
     if w.is_some() || h.is_some() {
+        if target_w > MAX_DIMENSION || target_h > MAX_DIMENSION {
+            return Err(AppError::InvalidResizeDimensions(
+                "resize dimensions exceed maximum allowed limit of 8192px.",
+            ));
+        }
         if target_w > 0 && target_h > 0 {
             // If one dimension is not specified for resize, maintain aspect ratio
             let (final_w, final_h) = if w.is_none() && h.is_some() {
