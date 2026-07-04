@@ -9,8 +9,8 @@ pub struct ProcessedImage {
     pub mime_type: String,
 }
 
-pub async fn fetch_image_bytes_from_url(url: &str) -> Result<Bytes, AppError> {
-    let response = reqwest::get(url).await?;
+pub async fn fetch_image_bytes_from_url(client: &reqwest::Client, url: &str) -> Result<Bytes, AppError> {
+    let response = client.get(url).send().await?;
     if !response.status().is_success() {
         return Err(AppError::ImageFetchError(format!(
             "failed to fetch image: server responded with {}",

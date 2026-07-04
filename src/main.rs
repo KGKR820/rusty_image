@@ -2,7 +2,7 @@ use std::path::Path;
 
 use axum::{
     Router,
-    extract::{DefaultBodyLimit, Multipart, Query},
+    extract::{DefaultBodyLimit, Multipart, Query, State},
     http::{HeaderMap, HeaderValue, StatusCode},
     response::IntoResponse,
     routing::{get, post},
@@ -48,6 +48,11 @@ struct ImageFormDataParams {
 
 const MAX_UPLOAD_SIZE: usize = 10 * 1024 * 1024; // 10MB
 
+#[derive(Clone)]
+struct AppState {
+    client: reqwest::Client,
+}
+
 #[tokio::main]
 async fn main() {
     tracing_subscriber::registry()
@@ -58,9 +63,17 @@ async fn main() {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .unwrap();
+
+    let state = AppState { client };
+
     let app = Router::new()
         .route("/url", get(process_image_from_url))
         .route("/upload", post(process_image_from_upload))
+        .with_state(state)
         .layer(DefaultBodyLimit::max(MAX_UPLOAD_SIZE));
 
     let listener = TcpListener::bind("0.0.0.0:3000").await.unwrap();
@@ -69,11 +82,12 @@ async fn main() {
 }
 
 async fn process_image_from_url(
+    State(state): State<AppState>,
     Query(params): Query<ImageUrlParams>,
 ) -> Result<impl IntoResponse, AppError> {
     tracing::debug!("Processing image from URL: {:?}", params);
 
-    let image_bytes = ops::fetch_image_bytes_from_url(&params.url).await?;
+    let image_bytes = ops::fetch_image_bytes_from_url(&state.client, &params.url).await?;
     let mut img = image::load_from_memory(&image_bytes)?;
 
     img = apply_transformations(
