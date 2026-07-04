@@ -109,7 +109,7 @@ async fn process_image_from_upload(
     debug!("Processing image from upload");
 
     let mut image_bytes: Option<Bytes> = None;
-    let image_filename: Option<String> = None;
+    let mut image_filename: Option<String> = None;
     let mut form_params = ImageFormDataParams::default();
 
     while let Some(field) = multipart.next_field().await? {
@@ -122,6 +122,9 @@ async fn process_image_from_upload(
         match name.as_str() {
             "image" => {
                 if image_bytes.is_none() {
+                    if let Some(file_name) = field.file_name() {
+                        image_filename = Some(file_name.to_string());
+                    }
                     image_bytes = Some(field.bytes().await?);
                 }
             }
